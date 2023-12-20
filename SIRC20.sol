@@ -31,8 +31,8 @@ contract SIRC20 is ReentrancyGuard {
     address public contributor;
     uint public contributorRewardPct = 100; // 1%
 
-    constructor(address _contributor) {
-        contributor = _contributor;
+    constructor() {
+        contributor = msg.sender;
         max[REWARD_TICK] = 21_000_000 ether;
     }
 
