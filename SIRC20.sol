@@ -18,12 +18,13 @@ contract SIRC20 is ReentrancyGuard {
         address from;
         uint amt;
         uint price;
+        bool partialAllowed;
     }
     mapping(uint => Listing) public listed;
     uint public nextListId;
 
-    event List(uint indexed id, string indexed tick, address indexed from, uint amt, uint price);
-    event Unlist(uint indexed id, string indexed tick, address indexed from, uint amt, uint price);
+    event List(uint indexed id, string indexed tick, address indexed from, uint amt, uint price, bool partialAllowed);
+    event Unlist(uint indexed id, string indexed tick, address indexed from);
     event Buy(uint indexed id, string indexed tick, address from, address indexed to, uint amt, uint price, uint fee);
 
     string public constant REWARD_TICK = "sirc";
@@ -96,14 +97,14 @@ contract SIRC20 is ReentrancyGuard {
         }
     }
 
-    function list(string memory tick, uint amt, uint price) external {
+    function list(string memory tick, uint amt, uint price, bool partialAllowed) external {
         require(max[tick] > 0, "SIRC20: not deployed");
         require(amt > 0, "SIRC20: amt must be positive");
         require(price > 0, "SIRC20: price must be positive");
         require(balance[tick][msg.sender] >= amt, "SIRC20: insufficient balance");
         balance[tick][msg.sender] -= amt;
-        listed[nextListId] = Listing(tick, msg.sender, amt, price);
-        emit List(nextListId, tick, msg.sender, amt, price);
+        listed[nextListId] = Listing(tick, msg.sender, amt, price, partialAllowed);
+        emit List(nextListId, tick, msg.sender, amt, price, partialAllowed);
         nextListId++;
         reward(msg.sender);
     }
@@ -114,7 +115,7 @@ contract SIRC20 is ReentrancyGuard {
         require(listing.amt > 0, "SIRC20: not listed");
         balance[listing.tick][msg.sender] += listing.amt;
         listed[id].amt = 0;
-        emit Unlist(id, listing.tick, msg.sender, listing.amt, listing.price);
+        emit Unlist(id, listing.tick, msg.sender);
     }
 
     function buy(uint id) external payable nonReentrant {
@@ -127,6 +128,22 @@ contract SIRC20 is ReentrancyGuard {
         payable(contributor).transfer(fee);
         payable(listing.from).transfer(msg.value - fee);
         emit Buy(id, listing.tick, listing.from, msg.sender, listing.amt, listing.price, fee);
+        reward(msg.sender);
+    }
+
+    function buyPartial(uint id, uint amt) external payable nonReentrant {
+        Listing memory listing = listed[id];
+        require(listing.amt > 0, "SIRC20: not listed");
+        require(listing.partialAllowed, "SIRC20: partial not allowed");
+        require(amt > 0, "SIRC20: amt must be positive");
+        require(amt <= listing.amt, "SIRC20: amt must be less than or equal to listing amt");
+        require(msg.value == (listing.price * amt) / listing.amt, "SIRC20: incorrect price");
+        uint fee = (msg.value * contributorRewardPct) / 10000;
+        balance[listing.tick][msg.sender] += amt;
+        listed[id].amt -= amt;
+        payable(contributor).transfer(fee);
+        payable(listing.from).transfer(msg.value - fee);
+        emit Buy(id, listing.tick, listing.from, msg.sender, amt, listing.price, fee);
         reward(msg.sender);
     }
 
