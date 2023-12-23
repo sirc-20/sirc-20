@@ -81,6 +81,21 @@ contract SIRC20 is ReentrancyGuard {
         emit Transfer(tick, msg.sender, to, amt);
     }
 
+    function airdrop(string memory tick, address[] memory to, uint[] memory amt) external {
+        require(max[tick] > 0, "SIRC20: not deployed");
+        require(to.length == amt.length, "SIRC20: to and amt length mismatch");
+        uint total;
+        for (uint i = 0; i < to.length; i++) {
+            total += amt[i];
+        }
+        require(balance[tick][msg.sender] >= total, "SIRC20: insufficient balance");
+        for (uint i = 0; i < to.length; i++) {
+            balance[tick][msg.sender] -= amt[i];
+            balance[tick][to[i]] += amt[i];
+            emit Transfer(tick, msg.sender, to[i], amt[i]);
+        }
+    }
+
     function list(string memory tick, uint amt, uint price) external {
         require(max[tick] > 0, "SIRC20: not deployed");
         require(amt > 0, "SIRC20: amt must be positive");
