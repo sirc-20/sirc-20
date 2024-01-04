@@ -24,7 +24,7 @@ contract SIRC20 is ReentrancyGuard {
     uint public nextListId;
 
     event List(uint indexed id, bytes32 indexed tick, address indexed from, uint amt, uint price, bool partialAllowed);
-    event Delist(uint indexed id, bytes32 indexed tick, address indexed from);
+    event Delist(uint indexed id, bytes32 indexed tick, address indexed from, uint amt);
     event Buy(
         uint indexed id,
         bytes32 indexed tick,
@@ -128,7 +128,7 @@ contract SIRC20 is ReentrancyGuard {
         require(listing.amt > 0, "SIRC20: not listed");
         balance[listing.tick][msg.sender] += listing.amt;
         listed[id].amt = 0;
-        emit Delist(id, listing.tick, msg.sender);
+        emit Delist(id, listing.tick, msg.sender, listing.amt);
     }
 
     function buy(uint id) external payable nonReentrant {
