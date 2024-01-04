@@ -9,8 +9,8 @@ contract SIRC20 is ReentrancyGuard {
     mapping(bytes32 => uint) public minted;
     mapping(bytes32 => mapping(address => uint)) public balance;
 
-    event Deploy(bytes32 indexed tick, uint max, uint lim);
-    event Mint(bytes32 indexed tick, address indexed to, uint amt);
+    event Deploy(bytes32 indexed tick, address indexed deployer, uint max, uint lim);
+    event Mint(bytes32 indexed tick, address indexed minter, address indexed to, uint amt);
     event Transfer(bytes32 indexed tick, address indexed from, address indexed to, uint amt);
 
     struct Listing {
@@ -24,7 +24,7 @@ contract SIRC20 is ReentrancyGuard {
     uint public nextListId;
 
     event List(uint indexed id, bytes32 indexed tick, address indexed from, uint amt, uint price, bool partialAllowed);
-    event Unlist(uint indexed id, bytes32 indexed tick, address indexed from);
+    event Delist(uint indexed id, bytes32 indexed tick, address indexed from);
     event Buy(
         uint indexed id,
         bytes32 indexed tick,
@@ -50,7 +50,7 @@ contract SIRC20 is ReentrancyGuard {
         if (minted[REWARD_TICK] == 21_000_000) return;
         minted[REWARD_TICK] += 1;
         balance[REWARD_TICK][to] += 1;
-        emit Mint(REWARD_TICK, to, 1);
+        emit Mint(REWARD_TICK, address(0), to, 1);
     }
 
     function validTick(bytes32 tick) public pure {
@@ -73,7 +73,7 @@ contract SIRC20 is ReentrancyGuard {
         require(_lim <= _max, "SIRC20: lim must be less than or equal to max");
         max[tick] = _max;
         lim[tick] = _lim;
-        emit Deploy(tick, _max, _lim);
+        emit Deploy(tick, msg.sender, _max, _lim);
         reward(msg.sender);
     }
 
@@ -83,7 +83,7 @@ contract SIRC20 is ReentrancyGuard {
         require(amt <= lim[tick], "SIRC20: lim exceeded");
         minted[tick] += amt;
         balance[tick][msg.sender] += amt;
-        emit Mint(tick, msg.sender, amt);
+        emit Mint(tick, msg.sender, msg.sender, amt);
         reward(msg.sender);
     }
 
@@ -122,13 +122,13 @@ contract SIRC20 is ReentrancyGuard {
         reward(msg.sender);
     }
 
-    function unlist(uint id) external {
+    function delist(uint id) external {
         Listing memory listing = listed[id];
         require(listing.from == msg.sender, "SIRC20: not owner");
         require(listing.amt > 0, "SIRC20: not listed");
         balance[listing.tick][msg.sender] += listing.amt;
         listed[id].amt = 0;
-        emit Unlist(id, listing.tick, msg.sender);
+        emit Delist(id, listing.tick, msg.sender);
     }
 
     function buy(uint id) external payable nonReentrant {
