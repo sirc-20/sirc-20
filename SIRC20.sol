@@ -32,7 +32,7 @@ contract SIRC20 is ReentrancyGuard {
         address indexed to,
         uint amt,
         uint price,
-        uint fee,
+        uint contributorReward,
         bool buyPartial
     );
 
@@ -135,12 +135,12 @@ contract SIRC20 is ReentrancyGuard {
         Listing memory listing = listed[id];
         require(listing.amt > 0, "SIRC20: not listed");
         require(msg.value == listing.price, "SIRC20: incorrect price");
-        uint fee = (msg.value * contributorRewardPct) / 10000;
+        uint contributorReward = (msg.value * contributorRewardPct) / 10000;
         balance[listing.tick][msg.sender] += listing.amt;
         listed[id].amt = 0;
-        payable(contributor).transfer(fee);
-        payable(listing.from).transfer(msg.value - fee);
-        emit Buy(id, listing.tick, listing.from, msg.sender, listing.amt, listing.price, fee, false);
+        payable(contributor).transfer(contributorReward);
+        payable(listing.from).transfer(msg.value - contributorReward);
+        emit Buy(id, listing.tick, listing.from, msg.sender, listing.amt, listing.price, contributorReward, false);
         reward(msg.sender);
     }
 
@@ -151,12 +151,13 @@ contract SIRC20 is ReentrancyGuard {
         require(amt > 0, "SIRC20: amt must be positive");
         require(amt <= listing.amt, "SIRC20: amt must be less than or equal to listing amt");
         require(msg.value == (listing.price * amt) / listing.amt, "SIRC20: incorrect price");
-        uint fee = (msg.value * contributorRewardPct) / 10000;
+        uint contributorReward = (msg.value * contributorRewardPct) / 10000;
         balance[listing.tick][msg.sender] += amt;
         listed[id].amt -= amt;
-        payable(contributor).transfer(fee);
-        payable(listing.from).transfer(msg.value - fee);
-        emit Buy(id, listing.tick, listing.from, msg.sender, amt, listing.price, fee, true);
+        listed[id].price = (listing.price * (listing.amt - amt)) / listing.amt;
+        payable(contributor).transfer(contributorReward);
+        payable(listing.from).transfer(msg.value - contributorReward);
+        emit Buy(id, listing.tick, listing.from, msg.sender, amt, listing.price, contributorReward, true);
         reward(msg.sender);
     }
 
